@@ -1,0 +1,349 @@
+---
+title: "Full-Grade Acceleration and Social Acceptance"
+author: "Chesley Chan"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE
+)
+```
+
+```{r load_packages, echo = FALSE, include = FALSE}
+library(tidyverse)
+library(stargazer)
+library(kableExtra)
+library(MASS)
+library(janitor)
+library(simputation)
+library(MatchIt)
+library(jtools)
+library(cobalt)
+library(CBPS)
+library(skimr)
+library(gridExtra)
+library(naniar)
+
+
+
+
+set.seed(1234567)
+```
+
+## Introduction
+```{asis intro}
+Does full-grade acceleration in adolescence education increase perceived social acceptance? According to the Association for Psychological Science, social acceptance is central in our lives because of our survival instincts to obtain safety and protection, which can come from social acceptance. On the other hand, the pain of social rejection negatively impacts our mental and physical health and creates a destructive loop of social anxiety that could contribute to suicide or acts of violence. In fact, an analysis of 15 school shooters found that all but 2 individuals had expressed feelings of social rejection. To prevent students from feeling socially rejected in the United States, we must seek to understand the factors that may influence a student’s perception of their social acceptance and reform educational policy to improve upon the factors that increase perceived social acceptance and mitigate the factors that decrease perceived social acceptance. In this study, I test the effect of full-grade acceleration (in the form of grade skipping) on the reported level of perceived social acceptance by matching on relevant covariates to isolate a causal effect and by conducting linear regressions. My findings suggest that skipping at least one grade during one’s adolescence education is correlated with a decrease in perceived social acceptance and that this effect is greater for females than for males, but there is no interaction effect found between full-grade acceleration status and gender on perceived social acceptance.
+```
+
+## Theory
+```{asis theory}
+One prevailing theory on full-grade acceleration and perceived social acceptance holds that accelerated students have more positive perceptions of their social relationships compared to regular students. Robinson (2004) and Kulik (2004) support this theory, and point out that these students reflect both positive social and academic performances. Colangelo, Assouline, Lukowski-Shoplik’s (2004) study, however, reveals that students who had skipped a grade often wish they had more time to mature socially before entering college. In other words, being ahead of their normal grade puts students into a new environment where they feel as if they socially lag behind their peers and this negative perception of social acceptance continues throughout their adolescence education and into their college career. Thus, Matthiessen (2018) admits, while it is appealing to encourage fast-learning students to pursue a more advanced education through full-grade acceleration, parents, guardians, and teachers are hesitant to allow their children to skip a grade.
+
+Hoogeveen, Hell, and Verhoeven (2009) approach this dilemma by examining self-concept, which is the self construct from the beliefs one holds about oneself and the responses of others. The scholars break this into academic and non-academic self-concept, which branches into social, emotional, and physical self-concept. The scholars disagree with Robinson (2004) and Kulik (2004), finding that while accelerated students have a more positive academic self-concept than their non-accelerated classmates, accelerated students also have a more negative social self-concept compared to their non-accelerated classmates. In addition, accelerated males report a more negative social self-concept compared to accelerated females. Hoogeveen, Hell, and Verhoeven (2009) also emphasize their finding of a significant three-way interaction effect between acceleration, gender, and time: accelerated males’ negative social self-concept lasts into the second year of study, whereas accelerated females’ social self-concept increased and was no longer different from that of non-accelerated females at the end of the second year of study. To build upon all the above claims, this study examines whether the impact of full-grade acceleration in adolescence education and the interaction effect between full-grade acceleration and gender  (omitting time in observance of parsimony and the limitation of using one wave of data) are associated with an increase in students’ perceived social acceptance.
+
+```
+
+## Data
+```{asis data}
+The source of the data comes from the National Longitudinal Study of Adolescent to Adult Health (Add Health), which is a longitudinal study of a nationally representative sample of adolescents in grades 7-12 in the United States during the 1994-95 school year. Specifically, the data for this study is from the “Wave I: In-Home Questionnaire” of Add Health and the original dataset has 6504 observations for 2794 variables. The data is scrubbed to include the students' reported level of how socially accepted they feel, whether or not they have skipped a grade, gender, age, parent income in 1994, and identification as latino, black, or asian. The outcome variable is level of reported social acceptance, while the explanatory variable is status of full-grade acceleration, or a binary of whether or not the student has skipped at least one grade. The model includes control variables for gender, age, income as a measure of socioeconomic status, and ‘latino’, ‘black’, and ‘asian’ as indicators of race. These additional control variables are important because of aforementioned scholarly literature on the impact of gender on perceived social acceptance, the impact of age on awareness of one’s social development and interactions, the role of economic status on one’s confidence and social interactions, and racial stereotypes about social acceptance. To clean the data, I identify the outcome variable as the level of perceived social acceptance, or ‘social,’ and I convert it into a numeric variable by recoding the responses to the statement, "I feel socially accepted," of ‘strongly disagree’ to 1, ‘disagree’ to 2, ‘agree’ to 3 and ‘strongly agree’ to 4. I omit representing the responses for level of perceived social acceptance: ‘neither agree nor disagree’ and ‘multiple response’, allowing these responses to be recoded as NAs, which are to be deleted later. I recode the treatment of full-grade acceleration, ‘skip’,  into a binary of 0 for ‘no’ and 1 for ‘yes’. Thus, 1 indicates “treatment”, while 0 indicates “control”. Furthermore, I recode ‘male’, ‘latino’, ‘black’, and ‘asian’ into indicator variables. 
+
+To address the missing data, I imputed the missing data by using the k-nearest neighbor matching method through the ‘simputation’ function. I deleted the remaining NAs to tidy the data, allowing the tests to run smoothly. After doing so, the dataset now has 3595 observations for 9 variables. To address heterogeneity, controlling for terms using specific kinds of controls in the regression models, such as the binary terms, accounts for group-level differences in this study. From Tables 1 and 2, the summary statistics show that the possible heterogeneity in the data is relatively balanced. The proportion of male observations between the controlled and treated observations are comparable at 0.483 and 0.449, the mean age of the observations are also comparable at 14.759 and 14.974, and the means of other variables are similar. However, it must be noted that the number of controlled observations remain disproportionately higher than the number of treated observations, as illustrated in Figure 1. I also use the matching method, CBPS (Covariate Balancing Propensity Score), which is elaborated upon in the ‘Methods’ section below, because it reduces heterogeneity even further. The covariate balance data visualization after the CBPS matching is included in the Appendix.
+```
+
+```{r load data, echo = FALSE, eval = FALSE}
+load("21600-0001-Data.rda", verbose = FALSE)
+
+# assign data to shorter named file
+ah1 <- da21600.0001 
+```
+
+```{r recode, echo = FALSE, eval = FALSE}
+ah1 <- ah1 %>%
+  mutate(
+    social = S62O,  # I feel socially accepted
+    skip = H1ED3,   # Have you ever skipped a grade?
+    male = S2,      # sex
+    age = S1,       # age
+    income = PA55,  # income
+    latino = H1GI4, # Are you of Hispanic or Latino origin?
+    black = H1GI6B, # black
+    asian = H1GI6D, # asian
+  )
+```
+
+```{r scrub, echo = FALSE, eval = FALSE}
+# clean social, making them indicator variables 
+ah1 <- ah1 %>%
+  mutate(
+    social = case_when( 
+      social == '(5) (5) Strongly disagree' ~ 1,
+      social == '(4) (4) Disagree' ~ 2,
+      social == '(2) (2) Agree' ~ 3,
+      social == '(1) (1) Strongly agree' ~ 4,  
+      TRUE ~ as.numeric(NA)        # everything not assigned is NA
+      )
+  )
+
+# use case_when to recode skip as a binary variable
+ah1 <- ah1 %>%
+  mutate(
+    skip = case_when(      
+      skip == '(0) (0) No (skip to Q.5)' ~ 0,  
+      skip == '(1) (1) Yes' ~ 1,
+      TRUE ~ as.numeric(NA)         # everything not assigned is NA
+      )
+  )
+
+# recode male, latino, black, and asian to indicator variables
+ah1 <- ah1 %>%
+  mutate(
+    male = case_when(      
+      male == '(2) (2) Female' ~ 0,
+      male == '(1) (1) Male' ~ 1, 
+      TRUE ~ as.numeric(NA)         # everything not assigned is NA
+      )
+  )
+
+ah1 <- ah1 %>%
+  mutate(
+    black = case_when(      
+      black == '(0) (0) Not marked' ~ 0,  
+      black == '(1) (1) Marked' ~ 1,
+      TRUE ~ as.numeric(NA)         # everything not assigned is NA
+      )
+  )
+
+ah1 <- ah1 %>%
+  mutate(
+    asian = case_when(      
+      asian == "(0) (0) Not marked (skip to Q.8)" ~ 0,  
+      asian == "(1) (1) Marked (If Asian/Pacific Islander among R's answer ask Q" ~ 1,
+      TRUE ~ as.numeric(NA)         # everything not assigned is NA
+      )
+  )
+
+ah1 <- ah1 %>%
+  mutate(
+    latino = case_when(      
+      latino == '(0) (0) No' ~ 0,  
+      latino == '(1) (1) Yes' ~ 1,
+      TRUE ~ as.numeric(NA)         # everything not assigned is NA
+      )
+  )
+```
+
+```{r smaller, echo = FALSE, eval = FALSE}
+# make a smaller dataset 
+ah <- ah1 %>%
+  dplyr::select(social, skip, male, age, income, black, asian, latino)
+
+# remove original loaded data
+rm(da21600.0001)
+
+# remove other larger data sets
+rm(ah1) 
+
+# use simputation to fill in missing data
+ah <- ah %>% 
+  bind_shadow() %>% 
+  as.data.frame() %>%
+  impute_knn(social ~ skip + 
+              male + age + income +
+              black + asian + latino)
+
+# remove remaining missing data
+ah <- ah %>%
+  filter(!is.na(social)) %>%
+  filter(!is.na(skip)) %>%
+  filter(!is.na(male)) %>%
+  filter(!is.na(age)) %>%
+  filter(!is.na(income)) %>%
+  filter(!is.na(black)) %>%
+  filter(!is.na(asian)) %>%
+  filter(!is.na(latino))
+
+ah <- ah %>%
+  dplyr::select(social, skip, male, age, income, black, asian, latino)
+
+save(ah, file = "ah.Rdata")
+```
+
+```{r load scrubbed data, echo = FALSE, results = 'asis'}
+load("ah.Rdata") # verbose reports what data loads
+```
+
+```{r summary stats, echo = FALSE, results='asis'}
+stargazer(ah[ah$skip == 0,], 
+          title = "Summary Statistics for Control",
+          type = 'latex',
+          header = FALSE)
+
+stargazer(ah[ah$skip == 1,], 
+          title = "Summary Statistics for Treatment",
+          type = 'latex',
+          header = FALSE)
+```
+
+
+```{r fig, echo = FALSE, fig.height=3, fig.width=5}
+ah %>%
+  ggplot(aes(x = social)) + geom_histogram() +
+  ggtitle("Fig 1: Self-Reported Social Acceptance Distribution \n by Status of Full-Grade Acceleration") +
+  xlab("Levels of Self-Reported Social Acceptance") +
+  facet_wrap(~skip)
+```
+
+## Methods
+```{asis methods}
+In order to isolate a causal effect because the data is observational, I use matching to isolate a research design that approximates treated and control groups that are similar on the relevant observed covariates. I match using four different matching styles: nearest, subclassification with caliper, genetic, and CBPS. Based on the covariate balance graphs, the CBPS matching method demonstrated the closest adjusted observations, indicating the best covariate balance between treatment and control groups in the matched data. To analyze the data, I regress the level of perceived social acceptance on full-grade acceleration status with matched data in the naive model by using the CBPS weights. In the second regression, the full model, I control for gender, age, income in 1994, black identity, asian identity, and latino identity and continue to use the CBPS weights. Finally, the third regression is the same as the full model with the addition of the interaction term between ‘skip’ and ‘male’ to observe the joint effect between full-grade acceleration status and gender on perceived social acceptance. These results are outputted in Table 3. Then, I conduct an ANOVA test in Tables 4 and 5 to identify the model with the most explanatory power while recognizing the importance of parsimony. The following equation represent the full model: $\hat{y_i} =  \hat{\beta_0} + \hat{\beta_1}skip_i + \hat{\beta_2}male_i + \hat{\beta_3}age_i  + \hat{\beta_4}income_i +  \hat{\beta_5}black_i + \hat{\beta_6}asian_i + \hat{\beta_7}latino_i + \epsilon_i$. In addition, I use the function ‘plot_model’ to visualize the relationship between  full-grade acceleration status and level of perceived social acceptance in Figure 2. Figure 3 depicts the same relationship but separates the results by gender.
+```
+
+## Results
+```{asis results}
+I used CBPS matching, regressions without and with an interaction term, and ANOVA tests to determine the effects of full-grade acceleration on level of perceived social acceptance, taking into account variables such as gender, age, income, and race. The results of these tests show that full-grade acceleration is correlated with a decrease in level of perceived social acceptance. Table 3 shows that in all three regressions tested, the coefficient for full-grade acceleration status is negative and has a magnitude of around 0.170, all of which are statistically significant at the 0.05 level. This indicates that the effect of full-grade acceleration on perceived social acceptance is robust, and in the full model, having skipped at least one grade compared to not having skipped a grade is correlated with a 0.170 decrease in the level of perceived social acceptance (two-sided p-value = 2.76e-12). However, the interaction term between ‘skip’ and ‘male’ appear to not be statistically significant (two-sided p-value = 0.441). The ANOVA test in Table 4 reveals that the full model, taking into account gender, age, income, and race, has more explanatory power than the naive model, and the full model is statistically significant at the 0.05 level (two-sided p-value = 0.00). The ANOVA test in Table 5 proceeds to demonstrate that the full model with the interaction term between ‘skip’ and ‘male’ does not have more explanatory power than the full model without the interaction term, and the model with the interaction term is statistically insignificant at the 0.05 level (two-sided p-value = 0.441). Thus, I reject the null hypothesis that there is no significant difference between the predictions made by the full and naive models but fail to reject the null hypothesis that there is not a statistically significant interaction between full-grade acceleration status and gender on level of perceived social acceptance. From these results, I conclude that the full model regression most appropriately models level of perceived social acceptance. This model indicates that identifying as male is correlated with a 0.162 unit increase in level of perceived social acceptance, which is statistically significant at the 0.05 level (two-sided p-value = 5.97e-11). I also find that a 1 unit increase in age is correlated with a 0.046 unit decrease in level of perceived social acceptance, which is statistically significant at the 0.05 level (two-sided p-value = 7.46e-10), a 1 unit increase in income is correlated with a 0.004 increase in level of perceived social acceptance, which is statistically significant at the 0.05 level (two-sided p-value = 2.73e-10), identifying as black is correlated with a 0.248 increase in level of perceived social acceptance, which is statistically significant at the 0.05 level (two-sided p-value of less than 2e-16), identifying as asian is correlated with a 0.070 increase in level of perceived social acceptance, but is not statistically significant at the 0.05 level (two-sided p-value = 0.113), and identifying as latino is correlated with a 0.274 increase in level of perceived social acceptance, which is statistically significant at the 0.05 level (two-sided p-value = 1.36e-14).
+
+Figures 2 illustrates the relationship between full-grade acceleration status and level of perceived social acceptance. Figure 3 depicts the same relationship but separates the results by gender. Both graphs show that there is a negative relationship between the variables of interest, with status of having skipped at least one grade compared to not having skipped a grade is correlated with a decrease in level of perceived social acceptance. Although the full model with the interaction effect is not statistically significant, Figure 3 shows that the negative impact of full-grade acceleration on level of perceived social acceptance is greater for females than for males. Finally, these results are substantively significant because our response variable operates on a 1 to 4 point scale, thus a 0.170 unit decrease in level of perceived social acceptance is proportionately notable and worthy of attention. This indicates that whether or not a student has skipped at least one grade plays a substantive role in the student’s level of perceived social acceptance. 
+```
+
+
+```{r match, echo=FALSE, include=FALSE}
+cbps_out <- CBPS(formula = skip ~
+              male + age + income +
+              black + asian + latino, data = ah)
+
+ah$cbps_weights <- cbps_out$weights
+
+lm_naive <- lm(social ~ skip, weights = cbps_weights, data = ah)
+lm_full <- lm(social ~ skip + male + age + income + black + asian + latino, weights = cbps_weights, data = ah)
+lm_interaction <- lm(social ~ skip + male + age + income + black + asian + latino + skip:male, weights = cbps_weights, data = ah)
+```
+
+
+```{r stargazer, results = 'asis', echo=FALSE}
+stargazer(lm_naive, lm_full, lm_interaction, type = 'latex',
+          header = FALSE,
+          no.space = TRUE, single.row = TRUE,
+          font.size = 'footnotesize',
+          title = "Naive, Full, and Full with Interaction Term
+          Models",
+          omit.stat = c("f", "ser")) 
+```
+
+```{r anova, results = 'asis', echo=FALSE}
+anova(lm_naive, lm_full) %>%
+  kable(format = "latex") %>% 
+  add_header_above(c("Table 4: ANOVA test for naive and full
+                     models" = 6)) %>%
+  kable_styling(                   
+    bootstrap_options = "striped", # add grey stripes to alternate rows
+    full_width = FALSE,
+    latex_options = "hold_position"
+    )
+
+anova(lm_full, lm_interaction) %>%
+  kable(format = "latex") %>% 
+  add_header_above(c("Table 5: ANOVA test for full and full with
+                     interaction models" = 6)) %>%
+  kable_styling(                   
+    bootstrap_options = "striped", # add grey stripes to alternate rows
+    full_width = FALSE,
+    latex_options = "hold_position"
+    )
+
+```
+
+
+```{r results plot, fig.height=3, echo=FALSE}
+plot_1 <- sjPlot::plot_model(lm_full, 
+           type = "pred",
+           terms = c("skip")) + 
+  ggtitle("Fig. 2: Predicted Self-Reported \n Social Acceptance by Full-Grade \n Acceleration Status ") +
+  ylab("Level of Self-Reported \n Social Acceptance") +
+  scale_x_discrete(name = "Status of Full-Grade Acceleration",
+                   limits = c(0, 1),
+                   labels = c("0" = "Have Not \n Skipped Grade", "1" = "Have \n Skipped Grade")) +
+  ylim(1,4)
+
+# by male or not
+plot_2 <- sjPlot::plot_model(lm_full, 
+           type = "pred",
+           terms = c("skip", "male")) + 
+  ggtitle("Fig. 3: Predicted Self-Reported \n SocialAcceptance by  Full-Grade \n Acceleration Status & Gender") +
+  ylab("Level of Self-Reported \n Social Acceptance") +
+  scale_x_discrete(name = "Status of Full-Grade Acceleration",
+                   limits = c(0, 1),
+                   labels = c("0" = "Have Not \n Skipped Grade", "1" = "Have \n Skipped Grade")) +
+  ylim(1,4)
+
+grid.arrange(plot_1, plot_2, ncol = 2)
+```
+
+## Discussion
+```{asis discussion}
+One main limitation to this study is the impact of social desirability bias on the response variable. Because Add Health collects its responses through in-home interviews, it is likely for students to over report their level of perceived social acceptance. Another limitation is missing data on levels of perceived social acceptance and systematic bias due to the deletion of observations with the responses of ‘neither agree nor disagree’ and ‘multiple response’ for level of perceived social acceptance. Consequently, roughly half of the observations of this survey wave, 3197 out of 6504, were omitted from this study. The dataset may under represent students with a low level of perceived social acceptance due to low confidence, embarrassment, self-consciousness, or unwillingness to give a clear answer. Another limitation to this study is the chance that key covariates were missed in the matching process. A potential improvement would be to delve further into the associations of other factors and student perceived social acceptance to ensure that no important covariates are missed. 
+
+The scope of inference can be extended to students in grades 7-12 in the US during the 1994-95 school year because sampling was random. It is limited to this school year because only the first wave of the longitudinal study was analyzed. Additionally, it is important to note that the relationship is not necessarily causal under the assumption that matching was successful and that randomness can be simulated by balancing the relevant covariates. With the current data and research design, it is difficult to address whether or not the treatment of full-grade acceleration was driven by an unaccounted variable that drives both the treatment and students' perceptions of their social acceptance.
+
+In scholarly literature, furthermore, the term, “full-grade acceleration,” is often used to represent both early entrance and grade skipping, but this study uses the term to account for grade skipping only. With regards to further potential research in the subject area, I recommend including the question of early entrance and even distinguishing between the nuance of early entrance and grade skipping. Hoogeveen, Hell, and Verhoeven (2009) state that time is a factor that influences one’s social self-concept and our results in this study show that a increase in age is correlated with a decrease in level of perceived social acceptance, suggesting that precisely when one skips a grade in their adolescence may yield varying levels of influence on level of perceived social acceptance. Further studies should also be conducted to examine the potential influences of the interaction effect between age and full-grade acceleration (using panel data), the interaction effect between having a learning disability and full-grade acceleration, and skipping more than one grade on one’s level of perceived social acceptance in their adolescence education.
+```
+
+## Conclusion
+```{asis conclusion}
+My findings suggest that skipping at least one grade during one’s adolescence education is correlated with a decrease in perceived social acceptance and this effect is greater for females than for males, but there is no interaction effect found between full-grade acceleration status and gender on perceived social acceptance. These results thus confirm Hoogeveen, Hell, and Verhoeven’s (2009) claim that accelerated students have a more negative social self-concept compared to their non-accelerated classmates. The results also support Colangelo, Assouline, Lukowski-Shoplik’s (2004) assertion that being placed in a grade ahead of one’s age group leads one to experience a social development lag in comparison to their peers. Thus, our findings reject the findings of Robinson (2004) and Kulik (2004) that full-grade acceleration is associated with an increase in one’s perceived social acceptance. However, because of the statistical significance of identifying as male on increasing the level of perceived social acceptance, we confirm Hoogeveen, Hell, and Verhoeven’s (2009) distinction between males and females, but we fail to confirm their argument that accelerated males report a more negative social self-concept compared to accelerated females. The statistical insignificance of the interaction effect between full-grade acceleration status and gender, neither confirm nor reject Hoogeveen, Hell, and Verhoeven’s (2009) claim that there is a three-way interaction effect between acceleration, gender, and time because our interaction effect only examines two out of three of these variables, but we can learn that within one period of examination, with respect to parsimony, that full-grade acceleration status and gender do not have a joint effect on one’s level of perceived social acceptance. 
+
+Although the impact of social rejection on increasing suicide and acts of violence is an extreme observation and seems beyond the scope of the impact that full-grade acceleration can have on one’s perceived social acceptance, governments and schools should be mindful of the results found in this study in reforming educational policy to mitigate the negative effects of full-grade acceleration on perceived social acceptance to combat the negative mental and physical effects that students experience under social rejection.
+```
+
+
+\newpage
+## Bibliography
+```{asis bibliography}
+Colangelo, Nicholas, Susan G. Assouline, and Ann E. Lupkowski-Shoplik. "Whole-Grade 
+Acceleration." A Nation Deceived: How Schools Hold Back America's Brightest Students, 2004, 77-86. https://gagc.org/resources/Documents/Schwartz/A Nation Deceived-How Schools Hold Back America's Brightest Students.pdf#page=86.
+
+Harris, Kathleen Mullan, and Udry, J. Richard. National Longitudinal Study of Adolescent to Adult Health (Add Health), 1994-2008 [Public Use]. Ann Arbor, MI: Carolina Population 
+Center, University of North Carolina-Chapel Hill [distributor], Inter-university Consortium for Political and Social Research [distributor], 2018-08-06. https://doi.org/10.3886/ICPSR21600.v21.
+
+Ho, Daniel E., Kosuke Imai, Gary King, and Elizabeth A. Stuart. "MatchIt: Nonparametric 
+Preprocessing for Parametric Causal Inference." Journal of Statistical Software 42, no. 8 (2011). doi:10.18637/jss.v042.i08. 
+
+Hoogeveen, Lianne, Janet G. Van Hell, and Ludo Verhoeven. "Self-Concept and Social Status of 
+Accelerated and Nonaccelerated Students in the First 2 Years of Secondary School in the 
+Netherlands." Gifted Child Quarterly 53, no. 1 (2009): 50-67. doi:10.1177/0016986208326556. 
+
+Kulik, James A. "Meta-Analytic Studies of Acceleration." A Nation Deceived: How Schools 
+Hold Back America's Brightest Students, 2004, 13-22. 
+https://www.accelerationinstitute.org/Nation_Deceived/ND_v2.pdf#page=68. 
+
+Lüdecke, Daniel. "Data Visualization for Statistics in Social Science [R Package SjPlot Version 
+2.6.3]." The Comprehensive R Archive Network. Accessed May 14, 2019. 
+https://CRAN.R-project.org/package=sjPlot. 
+
+Matthiessen, Connie."Pros and Cons of Skipping a Grade." Parenting, 2018, Accessed May 14, 
+2019. https://www.greatschools.org/gk/articles/skipping-a-grade-pros-and-cons/. 
+
+Robinson, Nancy M. "Effects of Academic Acceleration on the Social-Emotional Status of 
+Gifted Students." A Nation Deceived: How Schools Hold Back America's Brightest 
+Students, 2004, 59-67. https://www.accelerationinstitute.org/Nation_Deceived/ND_v2.pdf#page=68. 
+
+"Social Acceptance and Rejection: The Sweet and the Bitter." Association for Psychological 
+Science. Accessed May 14, 2019. 
+https://www.psychologicalscience.org/news/releases/social-acceptance-and-rejection-the-sweet-
+  and-the-bitter.html. 
+
+```
+
+
+## Appendix
+
+```{r covarplot, echo=FALSE, fig.height=4}
+# covariate plot
+bal.tab(cbps_out) %>% love.plot
+```
+
+
+
